@@ -1,0 +1,43 @@
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: onhive-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  onhive-backend:
+    image: onhive/onhive-backend-api:latest
+    container_name: onhive-backend
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      MongoDbSettings__ConnectionString: "mongodb://${MONGODB_USER}:${MONGODB_PASSWORD}@onhive-mongodb:${MONGODB_PORT:-27017}/?retryWrites=true&loadBalanced=false&serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource=admin&authMechanism=SCRAM-SHA-256"
+      MongoDbSettings__DataBase: ${MongoDbSettings__DataBase:-onhive}
+    ports:
+      - "${API_PORT:-4000}:4000"
+    env_file:
+      - .env
+
+  onhive-frontend:
+    image: onhive/onhive-frontend-app:latest
+    container_name: onhive-frontend
+    restart: unless-stopped
+    depends_on:
+      - onhive-backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+      VITE_ENV: ${VITE_ENV:-production}
+    ports:
+      - "${APP_PORT:-4200}:4200"
+    env_file:
+      - .env
+
+volumes:
+  mongodb_data:
